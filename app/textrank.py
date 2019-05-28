@@ -1,4 +1,5 @@
-''' Exercise2: TextRank algorithm quick implementation
+'''
+Exercise2: TextRank algorithm quick implementation
 
 This module implements methods to analyze and parse text from a dataset
 of reddit's comments. The objective is to get keywords or most important
@@ -615,7 +616,7 @@ def main():
     source_dir = project_dir + '/resources/'
     output_dir = project_dir + '/output/'
     source_file_name = 'RS_2017-10.bz2'
-    output_file_name = 'ranked_words.txt'
+    output_file_name = 'textrank_output.txt'
     source_file_path = source_dir + source_file_name
     output_file_path = output_dir + output_file_name
 
