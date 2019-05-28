@@ -483,7 +483,9 @@ class TextCleaner:
     '''
 
     # Static class members.
+    # Regular expression for keeping characters only.
     CLEAN_PATTERN = r'[^a-zA-z\s]'
+    # Collection of common words to eliminate from the input data.
     stop_words = stopwords.words('english')
     STOP_WORDS = set(stop_words + list(punctuation))
     MIN_WORD_PROP, MAX_WORD_PROP = 0.1, 0.9
@@ -641,8 +643,10 @@ def main():
     text_rank.iterate(my_matrix)
 
     # Get end results and show in the console.
-    wordrank = text_rank.get_keywords()
+    wordrank = text_rank.get_keywords(1800)
     dict2file(output_file_path, wordrank)
+
+    logging.info('Done.')
 
 
 # Main mathod call.

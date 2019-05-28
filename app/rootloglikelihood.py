@@ -19,6 +19,7 @@ import urllib.request
 import tempfile
 import math
 from collections import OrderedDict
+from nltk.corpus import stopwords
 
 # basic logging configuration
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s',
@@ -45,6 +46,9 @@ class DataGenerator:
     getwords(nlines=50000)
         returns a dictionary of words and frequencies.
     '''
+
+    # Static class members.
+    stop_words = stopwords.words('english')
 
     def __init__(self, filename, topic_name):
         '''
@@ -73,8 +77,8 @@ class DataGenerator:
             scope, total number of lines to parse in the json.
         '''
 
-        logging.info('Executing getwords method of %s', self.__class__.
-                     __name__)
+        logging.info('Executing %s method of %s', 
+            self.getwords.__name__, self.__class__.__name__)
 
         with bz2.open(self.filename, 'rt') as reddit_file:
             for line in itertools.islice(reddit_file, 0, nlines):
@@ -84,9 +88,14 @@ class DataGenerator:
                     tokens = nltk.word_tokenize(text)
                     tokens = [word for word in tokens if word.isalpha()]
                     tokens = [word.lower() for word in tokens]
+                    # Remove stop words
+                    tokens = [word for word in tokens
+                                if word not in DataGenerator.stop_words]
+                    tokens = [word for word in tokens
+                                if len(word) > 1]
                     self.depression_coll.update(tokens)
 
-            return self.depression_coll
+        return self.depression_coll
 
 
 class CommonWord:
@@ -116,8 +125,8 @@ class CommonWord:
             none.
             '''
 
-            logging.info('Executing __init__method of: '
-                         + self.__class__.__name__)
+            logging.info('Executing %s method of %s',
+                         self.__init__.__name__, self.__class__.__name__)
 
             self.url = 'http://norvig.com/ngrams/count_1w.txt'
             self.commonwords_coll = {}
@@ -220,6 +229,7 @@ class RootLogLikelihoodRatio:
         sorted_results_list = self.order_scores(my_dict)
 
         with open(my_file, 'w') as f:
+            logging.info('Saving results.')
             f.write('\n'.join('%s %s' % x for x in sorted_results_list))
 
     def printdict(self, my_dict):
@@ -292,7 +302,7 @@ class RootLogLikelihoodRatio:
             Input collection.
         '''
 
-        logging.debug('Executing %s method', self.order_scores.__name__)
+        logging.info('Executing %s method', self.order_scores.__name__)
 
         sorted_scores = sorted(scores_dict.items(),
                                key=operator.itemgetter(1), reverse=True)
@@ -320,6 +330,8 @@ def main():
     # Create the data_generator object.
     data_generator = DataGenerator(source_file_path, reddit_topic)
     reddit_dataset = data_generator.getwords()
+    
+    print(reddit_dataset)
 
     # Creating the common_word object.
     common_word = CommonWord()
@@ -333,6 +345,10 @@ def main():
     # Save results in filesystem.
     rootloglikelihood_ratio.savetofile(scores, output_file_path)
 
+    logging.info('Done.')
+
+    # Print number of words obtained.
+    print(len(reddit_dataset))
 
 # Entry point.
 main()
