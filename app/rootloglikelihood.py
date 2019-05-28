@@ -3,6 +3,8 @@ Exercise 1: Loglikelihood Ratio algorithm implementation for
 the reddit datasets. Gets a list of most relevant words within the
 depression posts together with a score value.
 
+TODO: filter very common words. Import login from the
+textrank module.
 '''
 
 import os
@@ -16,6 +18,7 @@ import nltk
 import urllib.request
 import tempfile
 import math
+from collections import OrderedDict
 
 # basic logging configuration
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s',
@@ -252,8 +255,9 @@ class RootLogLikelihoodRatio:
                     + b*math.log(b/E2 + (1 if b == 0 else 0)))
         result = math.sqrt(result)
 
-        if ((a/c) < (b/d)):
+        '''if ((a/c) < (b/d)):
             result = -result
+        '''
 
         return result
 
@@ -288,8 +292,10 @@ class RootLogLikelihoodRatio:
             Input collection.
         '''
 
+        logging.debug('Executing %s method', self.order_scores.__name__)
+
         sorted_scores = sorted(scores_dict.items(),
-                               key=operator.itemgetter(1))
+                               key=operator.itemgetter(1), reverse=True)
         return sorted_scores
 
 
