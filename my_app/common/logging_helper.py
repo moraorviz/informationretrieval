@@ -7,16 +7,12 @@ basicConfig() method.
 
 import logging
 
-# Change the root logger default mode.
-# Without this line the custom logger prints nothing despite
-# of the c_handler in DEBUG level we define below.
-logging.basicConfig(level=logging.DEBUG)
-
-# Create a custom logger.
+# Create a custom logger and set level to debug.
+# Singleton.
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-# Create handlers
-# c = console.
+# Create console handler.
 c_handler = logging.StreamHandler()
 c_handler.setLevel(logging.DEBUG)
 
@@ -26,3 +22,5 @@ c_handler.setFormatter(c_format)
 
 # Add handlers to the logger
 logger.addHandler(c_handler)
+
+logger.debug('Custom logger is ready.')

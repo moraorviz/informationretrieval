@@ -612,8 +612,6 @@ class TextCleaner:
 def main():
 
     # Set up the directory variables.
-    # TODO build a UI for allowing the use specify this
-    # atm hardcored values.
     current_dir = os.getcwd()
     project_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
     source_dir = project_dir + '/resources/'

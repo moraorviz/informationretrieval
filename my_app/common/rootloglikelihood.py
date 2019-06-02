@@ -7,9 +7,6 @@ TODO: filter very common words. Import login from the
 textrank module.
 '''
 
-import os
-import operator
-import logging
 import collections
 import itertools
 import bz2
@@ -18,15 +15,11 @@ import nltk
 import urllib.request
 import tempfile
 import math
+# Import custom logger.
+from .logging_helper import logger
 from nltk.corpus import stopwords
 
-# basic logging configuration
-logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s',
-                    level=logging.DEBUG)
 
-
-# TODO: perform some text cleaning to avoid processing inexistent
-# word. Apply cleaning tecniques to retrieve a clean dataset o words.
 class DataGenerator:
     '''
     A class for generating collections of words to be
@@ -56,9 +49,7 @@ class DataGenerator:
         filename : str
             source file path.
         '''
-
-        logging.info('Executing __init__ method of %s', self.__class__.
-                     __name__)
+        logger.debug('Initializing %s.', self.__class__.__name__)
 
         self.text_id = 'selftext'
         self.domain_id = 'domain'
@@ -75,9 +66,7 @@ class DataGenerator:
         nlines : int
             scope, total number of lines to parse in the json.
         '''
-
-        logging.info('Executing %s method of %s',
-                     self.getwords.__name__, self.__class__.__name__)
+        logger.debug('Executing %s.', self.getwords.__name__)
 
         with bz2.open(self.filename, 'rt') as reddit_file:
             for line in itertools.islice(reddit_file, 0, nlines):
@@ -123,9 +112,7 @@ class CommonWord:
              ----------
             none.
             '''
-
-            logging.info('Executing %s method of %s',
-                         self.__init__.__name__, self.__class__.__name__)
+            logger.debug('Initializing %s.', self.__class__.__name__)
 
             self.url = 'http://norvig.com/ngrams/count_1w.txt'
             self.commonwords_coll = {}
@@ -140,13 +127,14 @@ class CommonWord:
                 none.
             '''
 
-            logging.info('Executing getwords method of %s', self.__class__.
+            logger.debug('Executing getwords method of %s.', self.__class__.
                          __name__)
 
             temp = tempfile.TemporaryFile(mode='w+t')
 
             try:
                 with urllib.request.urlopen(self.url) as response:
+                    logger.debug('Opening the temp file.')
                     html = response.read().decode('utf-8')
                     temp.writelines(html)
                     temp.seek(0)
@@ -156,7 +144,7 @@ class CommonWord:
                     self.commonwords_coll[word] = count
 
             finally:
-                logging.info('Closing the temp file.')
+                logger.debug('Closing the temp file.')
                 temp.close()
 
             return self.strfreqtoint(self.commonwords_coll)
@@ -192,10 +180,6 @@ class RootLogLikelihoodRatio:
 
     Methods
     -------
-    savetofile(my_dict)
-        Save contents into a text file.
-    printdict(my_dict)
-        Prints input dictionary contents into the console.
     calculate_score(a, b, c, d)
         Algorithm implementation.
     applyllr()
@@ -203,45 +187,10 @@ class RootLogLikelihoodRatio:
 
     # Class initializer method.
     def __init__(self, reddit_collection, common_collection):
-
-        logging.info('Executing __init__ method of %s', self.__class__.
-                     __name__)
-
+        logger.debug('Initializing %s.', self.__class__.__name__)
         self.reddit_collection = reddit_collection
         self.common_collection = common_collection
         self.scores = {}
-
-    def savetofile(self, my_dict, my_file):
-        '''Save data in the collection into a text file.
-
-        Parameters
-        ----------
-        my_dict : dict
-            Input collection.
-        my_file: str
-            Path to the output text file.
-        '''
-
-        logging.info('Executing %s method.', self.savetofile.__name__)
-
-        # First of all order the scores.
-        sorted_results_list = self.order_scores(my_dict)
-
-        with open(my_file, 'w') as f:
-            logging.info('Saving results.')
-            f.write('\n'.join('%s %s' % x for x in sorted_results_list))
-
-    def printdict(self, my_dict):
-        '''Utility method for printing a dictionary through console.
-
-        Parameteres
-        -----------
-        my_dict : dic
-            input collection.
-        '''
-
-        for key, value in dict.items():
-            print(f'{key:<4} {value}')
 
     def calculate_score(self, a, b, c, d):
         '''Algorithm implementation.
@@ -278,8 +227,8 @@ class RootLogLikelihoodRatio:
         none.
         '''
 
-        logging.info('Executing applyllr metho of %s',
-                     self.__class__.__name__)
+        logger.debug('Executing %s method of %s.',
+                     self.applyllr.__name__, self.__class__.__name__)
 
         # Calculate the scores for the all the dataset.
         for word, frequency in self.reddit_collection.items():
@@ -292,68 +241,3 @@ class RootLogLikelihoodRatio:
             self.scores[word] = result
 
         return self.scores
-
-    def order_scores(self, scores_dict, nresults=1500):
-        '''Order dictionary by value in descending order.
-
-        Parametres
-        ----------
-        scores_dict : dic
-            Input collection.
-        nresults : integer
-            Total amount of desired words in the output.
-        '''
-
-        logging.info('Executing %s method', self.order_scores.__name__)
-
-        # Sorts the dictionary with the sorted method and retrieves
-        # the first 1500 results.
-        # Uses built-in function sorted.
-        sorted_scores = sorted(scores_dict.items(),
-                               key=operator.itemgetter(1), reverse=True)
-
-        # Slices the nresults first elements of the list.
-        return sorted_scores[:nresults]
-
-
-# Main method.
-def main():
-
-    logging.info('Executing main method')
-
-    # Set up input and output files.
-    current_dir = os.getcwd()
-    project_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
-    resources_dir = project_dir + '/resources/'
-    output_dir = project_dir + '/output/'
-    source_file_name = 'RS_2017-10.bz2'
-    output_file_name = 'loglikelyhood_output.txt'
-    source_file_path = resources_dir + source_file_name
-    output_file_path = output_dir + output_file_name
-
-    # Set the topic of the discussion. Json datasource's key value.
-    reddit_topic = 'self.depression'
-
-    # Create the data_generator object.
-    data_generator = DataGenerator(source_file_path, reddit_topic)
-    reddit_dataset = data_generator.getwords()
-
-    # Creating the common_word object.
-    common_word = CommonWord()
-    common_dataset = common_word.getwords()
-
-    # Create the rootloglikelihood_ratio object.
-    rootloglikelihood_ratio = RootLogLikelihoodRatio(reddit_dataset,
-                                                     common_dataset)
-    scores = rootloglikelihood_ratio.applyllr()
-
-    # Save results in filesystem.
-    rootloglikelihood_ratio.savetofile(scores, output_file_path)
-
-    results = rootloglikelihood_ratio.order_scores(scores)
-    logging.info('Length of the resulting dataset: %s', len(results))
-    logging.info('Done.')
-
-
-# Entry point.
-main()

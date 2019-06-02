@@ -1,4 +1,4 @@
-from my_app import app
+from . import app
 
 if __name__ == '__main__':
     app.run()
