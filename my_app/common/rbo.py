@@ -95,7 +95,7 @@ def main():
     print(a)
     print(b)
     print(c)
-    print(_cusfloformat(rbo.rbo_min(.5, 400)))
+    print(_cusfloformat(rbo.rbo_min(.8, 15)))
 
 
 main()

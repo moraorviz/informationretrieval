@@ -1,8 +1,6 @@
-# Import python core libraries.
 import operator
-# Import external libraries.
 import nltk
-# Import custom logger
+import json
 from .logging_helper import logger
 
 
@@ -25,7 +23,7 @@ class FileManager:
     download_stopwords()
     '''
 
-    def __init__(self, source, output):
+    def __init__(self, source='', output=''):
         logger.debug('Initializing %s', self.__class__.__name__)
         self.source = source
         self.output = output
@@ -48,6 +46,7 @@ class FileManager:
             f.write('\n'.join('%s %s' % x for x in sorted_results_list))
 
     # Variant of the save_dict() method.
+
     def save_dict_variant(self, my_dict, my_file):
         with open(my_file, 'w') as f:
             for word, rank in my_dict.items():
@@ -68,3 +67,10 @@ class FileManager:
     # Downloads a set of common words from the web. One time only execution.
     def download_stopwords():
         nltk.download('stopwords')
+
+    # Saves data in a json objet to a file in the filesystem.
+    # If the file doesn't exist it should create it.
+    # TODO: complete the method.
+    def save_json(self, data, outfile):
+        with open(outfile, 'w+') as of:
+            json.dump(dict(data), of)
