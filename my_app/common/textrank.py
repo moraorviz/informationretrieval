@@ -9,13 +9,9 @@ Processing.
 '''
 
 # import pdb
-import os
-import logging
 import itertools
 import json
 import bz2
-import nltk
-import operator
 import zipfile
 import numpy as np
 import re
@@ -24,26 +20,8 @@ from string import punctuation
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.corpus import stopwords, words
 from collections import OrderedDict, Counter
-
-# Logging configuration.
-logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
-logging.debug('==== Words processing with TextRank over Reddit datasets ====')
-
-
-def print_dict(my_dict):
-    '''Utility method to print dictionary values with a pretty output
-    through the console.
-
-    Parameters
-    ----------
-    my_dict : dict
-        Input dictionary.
-    '''
-
-    sorted_list = sorted(my_dict.items(), key=operator.itemgetter(1))
-
-    for key, value in sorted_list:
-        print(f'{key:<4} {value}')
+# Import custom logger
+from .logging_helper import logger
 
 
 def symmetrize(a):
@@ -56,19 +34,6 @@ def symmetrize(a):
     '''
 
     return a + a.T - np.diag(a.diagonal())
-
-
-def download_stop_words():
-    '''Utility method to download a set of common words from nltk for
-    filtering purposes. One time only execution.
-
-    Parameters
-    ----------
-    None.
-    '''
-
-    nltk.download('stopwords')
-    return stopwords.words('english')
 
 
 def remove_nestings(sentences_list, output_list):
@@ -89,40 +54,6 @@ def remove_nestings(sentences_list, output_list):
             output_list.append(item)
 
     return output_list
-
-
-def list_to_file(filename, my_list):
-    '''Saves the contents of a list to a text file in the current directory.
-
-    Parameters
-    ----------
-    filename : str
-        Name of the output file.
-    my_list : list
-        Input list to be saved.
-    '''
-
-    with open(filename, 'w') as f:
-        for item in my_list:
-            f.write('%s\n' % item)
-
-
-def dict2file(outputfile, my_dict):
-    '''Writes the contents of a dictionary into a text file for
-    analysis.
-
-    Parameters
-    ----------
-    outputfile : str
-        Output file name.
-    my_dict : dict
-        Input dictionary.
-    '''
-
-    with open(outputfile, 'w') as f:
-
-        for word, rank in my_dict.items():
-            f.write('{} {}\n'.format(word, rank))
 
 
 class Words:
@@ -162,7 +93,7 @@ class Words:
         '''
 
         # Class member attributes.
-        logging.debug('Initializing %s.', self.__class__.__name__)
+        logger.debug('Initializing %s.', self.__class__.__name__)
         self.words_collection = Counter()
         self.text_id = 'selftext'
         self.domain_id = 'domain'
@@ -252,12 +183,11 @@ class VectorRepr:
         None.
         '''
 
-        logging.debug('Initializing %s.', self.__class__.__name__)
+        logger.debug('Initializing %s.', self.__class__.__name__)
         # Load the glove vectors at initialization time.
         self.glove_vectors = VectorRepr.load_glove_vectors()
 
     def load_zip(self):
-        logging.debug('Loading Glove vector model.')
         zip_ref = zipfile.ZipFile(self.GLOVE_ZIP, 'r')
         zip_ref.extractall(self.GLOVE_DIR)
         zip_ref.close()
@@ -271,7 +201,7 @@ class VectorRepr:
         None.
         '''
 
-        logging.debug('Loading Glove Model')
+        logger.debug('Loading Glove Model.')
         with open(VectorRepr.glove_vectors_file,
                   'r', encoding='utf8') as glove_vector_file:
 
@@ -329,7 +259,7 @@ class TextRank:
             A list of strings containing all the sentences.
         '''
 
-        logging.debug('Initializing %s.', self.__class__.__name__)
+        logger.debug('Initializing %s.', self.__class__.__name__)
         self.d = 0.85
         self.min_diff = 1e-5
         self.window_size = 4
@@ -388,10 +318,10 @@ class TextRank:
             Maximum number of iterations.
         '''
 
-        logging.debug('Executing get_keywords method'
-                      ' with n = %s', total_words)
+        logger.debug('Executing %s method'
+                     ' with n = %s.', self.get_keywords.__name__, total_words)
 
-        # Container for the results.
+        # Inialize empty dictionary for storing the results.
         wordrank = {}
 
         # Prepare the results.
@@ -403,7 +333,7 @@ class TextRank:
 
             wordrank[key] = value
 
-            print(key + ' - ' + str(value))
+            # print(key + ' - ' + str(value))
             if i >= (total_words - 1):
                 break
 
@@ -448,7 +378,7 @@ class TextRank:
             Initial matrix given by get_matrix method.
         '''
 
-        logging.debug('Executing the iterate method.')
+        logger.debug('Executing %s method.', self.iterate.__name__)
         vocab = self.get_vocabulary()
         pr = np.array([1] * len(vocab))
         previous_pr = 0
@@ -499,7 +429,7 @@ class TextCleaner:
             Input text to be processed.
         '''
 
-        logging.debug('Initializing %s', self.__class__.__name__)
+        logger.debug('Initializing %s.', self.__class__.__name__)
         self.text_data = text_data
 
     # Methods for text cleaning purposes.
@@ -593,7 +523,8 @@ class TextCleaner:
         None.
         '''
 
-        logging.debug('Processing sentences.')
+        logger.debug('Executing %s method.',
+                     self.process_text_sentences.__name__)
         # Breakpoint.
         # pdb.set_trace()
         # Uses sent_tokenize method from nltk
@@ -606,48 +537,3 @@ class TextCleaner:
         clean5 = TextCleaner.remove_stopwords_sent(clean4)
 
         return clean5
-
-
-# Main method definition.
-def main():
-
-    # Set up the directory variables.
-    current_dir = os.getcwd()
-    project_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
-    source_dir = project_dir + '/resources/'
-    output_dir = project_dir + '/output/'
-    source_file_name = 'RS_2017-10.bz2'
-    output_file_name = 'textrank_output.txt'
-    source_file_path = source_dir + source_file_name
-    output_file_path = output_dir + output_file_name
-
-    # Set up the topic of the target user posts.
-    reddit_topic = 'self.depression'
-
-    # Instance the words object with the source data file.
-    words = Words(source_file_path, reddit_topic)
-
-    # Get a string object containing all the texts.
-    my_text = words.get_text_only()
-
-    # Clean the texts using the text_cleaner object.
-    text_cleaner = TextCleaner(my_text)
-    sentences = text_cleaner.process_text_sentences()
-
-    # Instantiate the text_rank object with the sentences.
-    text_rank = TextRank(sentences)
-    my_matrix = text_rank.get_matrix()
-
-    # Performing the iteration steps.
-    text_rank.iterate(my_matrix)
-
-    # Get end results and show in the console.
-    wordrank = text_rank.get_keywords()
-    dict2file(output_file_path, wordrank)
-
-    logging.info('Lenght of the output dataset: %s', len(wordrank))
-    logging.info('Done.')
-
-
-# Main mathod call.
-main()

@@ -4,21 +4,26 @@ Entry point of the application. Front-end logic. Console UI.
 Calls the clients depending on the user input.
 '''
 
+# Import self modules and classes.
 from .common.logging_helper import logger
 from .common.rootlog_client import RootLogClient
+from .common.textrank_client import TextRankClient
+# Import core libs.
 import argparse
 
 
+# TODO: add an argument to execute the spearman coefficent
+# calculation and representation.
 def run():
     logger.debug('Starting the program.')
     # Instantiating the argument parser.
     parser = argparse.ArgumentParser()
     # Introducing optional arguments.
-    parser.add_argument('--rootlog', help='apply rootloglikelihood '
-                        'algorithm', action='store_true')
+    parser.add_argument('--rootlog', help='Apply rootloglikelihood '
+                        'algorithm.', action='store_true')
     # parser.add_argument('--textrank', help
-    parser.add_argument('--textrank', help='apply textrank '
-                        'algorithm', action='store_true')
+    parser.add_argument('--textrank', help='Apply textrank '
+                        'algorithm.', action='store_true')
     args = parser.parse_args()
 
     if args.rootlog:
@@ -28,3 +33,5 @@ def run():
 
     if args.textrank:
         logger.debug('Textrank option chosed.')
+        textrank_client = TextRankClient()
+        textrank_client.execute()

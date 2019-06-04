@@ -227,8 +227,7 @@ class RootLogLikelihoodRatio:
         none.
         '''
 
-        logger.debug('Executing %s method of %s.',
-                     self.applyllr.__name__, self.__class__.__name__)
+        logger.debug('Executing %s method.', self.applyllr.__name__)
 
         # Calculate the scores for the all the dataset.
         for word, frequency in self.reddit_collection.items():

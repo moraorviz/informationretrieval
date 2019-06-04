@@ -27,12 +27,23 @@ class RootLogClient:
 
     # Execute the rootloglikelihoodratio logic.
     def execute(self):
-
         logger.debug('Executing %s method.', self.execute.__name__)
+        results = self.get_output()
+        self.file_manager.save_dict(results, self.OUTPUT)
+        logger.debug('Finished.')
+
+    def get_output(self):
+        '''Getter method for the rootloglikelihood results.'''
 
         reddit_dataset = self.data_generator.getwords()
         common_dataset = self.common_word.getwords()
         root_log = RootLogLikelihoodRatio(reddit_dataset, common_dataset)
         scores_dict = root_log.applyllr()
-        self.file_manager.save_dict(scores_dict, self.OUTPUT)
-        logger.debug('Finished.')
+
+        return scores_dict
+
+    def get_ordered_output(self):
+        scores = self.get_output()
+        output = self.file_manager.order_scores(scores)
+
+        return output
