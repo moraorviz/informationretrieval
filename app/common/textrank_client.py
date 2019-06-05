@@ -9,8 +9,8 @@ class TextRankClient:
     '''A client object for the TextRank logic and calculations.'''
 
     # Static class members.
-    INPUT = 'my_app/resources/RS_2017-10.bz2'
-    OUTPUT = 'my_app/output/textrank.txt'
+    INPUT = 'app/resources/RS_2017-10.bz2'
+    OUTPUT = 'app/output/textrank.txt'
     REDDIT_TOPIC = 'self.depression'
 
     def __init__(self):

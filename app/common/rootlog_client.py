@@ -14,8 +14,8 @@ class RootLogClient:
     '''
 
     # Static class members.
-    INPUT = 'my_app/resources/RS_2017-10.bz2'
-    OUTPUT = 'my_app/output/loglikelyhood.txt'
+    INPUT = 'app/resources/RS_2017-10.bz2'
+    OUTPUT = 'app/output/loglikelyhood.txt'
     REDDIT_TOPIC = 'self.depression'
 
     # Initializer method.

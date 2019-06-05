@@ -16,8 +16,8 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 
 # Define some variables.
-tr_json_file = 'my_app/output/textrank.json'
-rl_json_file = 'my_app/output/rootlog.json'
+tr_json_file = 'app/output/textrank.json'
+rl_json_file = 'app/output/rootlog.json'
 
 # Persist results in json files.
 # One time execution.
@@ -203,8 +203,8 @@ class Classificator:
     '''
 
     # Static class members.
-    INPUT = 'my_app/resources/RS_2017-10.bz2'
-    OUTPUT = 'my_app/output/classification.json'
+    INPUT = 'app/resources/RS_2017-10.bz2'
+    OUTPUT = 'app/output/classification.json'
     REDDIT_TOPIC = 'self.offmychest'
     DOMAIN_ID = 'domain'
     TEXT_ID = 'selftext'
@@ -279,12 +279,23 @@ class CustomPost:
     
 
 def main():
-
+    # Get list of posts with associated score.
     lst = getposts_wscore()    
+    # Sort the list in descending order.
     olist = order_posts(lst)
-    for i in olist:
-        print(i.id, i.score)
-    print(len(olist))
+    # Return the top/less rated lists.
+    top_rated, less_rated = divide_posts(olist)
+    # Join both top and less rated lists.
+    merged_list = top_rated + less_rated
+    print(len(merged_list))
+    # Get positives and negatives.
+    positives, negatives = get_positives_negatives(merged_list)
+    print(len(positives))
+    print(len(negatives))
+    i, j = get_true_positives(positives, top_rated, less_rated)
+    print(i, j)
+    
+    # TODO: save the results in json format.
 
 def getposts_wscore():
     '''Returns a list of 378 (hc) punctuated posts.
@@ -297,7 +308,7 @@ def getposts_wscore():
     posts_out = []
     da = deser_json(rl_json_file)
     classificator = Classificator()
-    posts_in = classificator.get_posts(10000)
+    posts_in = classificator.get_posts(500000)
 
     for post in posts_in:
         post.set_cleantext()
@@ -316,5 +327,70 @@ def order_posts(plist):
     '''
 
     return sorted(plist, key=lambda x: x.score, reverse = True)
+
+def divide_posts(olist):
+    '''Returns two list with the most/less scored posts.
+
+    Parameters
+    ---------- 
+    olist : list
+        Ordered list of posts.
+    '''
+
+    return olist[:100], olist[:-101:-1]
+
+def get_positives_negatives(lst):
+    '''Given a list of total posts returns two lists of positive and negative cases.
+    
+    Parameters
+    ----------
+    lst : list
+        Input list of total ranked posts.
+    '''
+
+    positives = []
+    negatives = []
+    for post in lst: 
+        hit = False
+        for sentence in post.cleantext:
+            for word in sentence:
+                if 'depres' in word:
+                    hit = True
+        if hit:
+            positives.append(post)
+        else:
+            negatives.append(post)
+
+    return positives, negatives
+
+def get_true_positives(positives, top, less):
+    '''Given a list of positives and top rated posts, calculates the number of true positives.
+
+    Parameters
+    ----------
+    positives : list
+        A list of positive posts. 
+    top : list
+        A list of top ranked posts.
+    '''
+
+    i = 0
+    j = 0
+
+    for post in positives:
+
+        id_positive = post.id
+
+        for post in top:
+            if id_positive == post.id:
+                i += 1
+                print('True positive found.')
+
+        for post in less:
+            if id_positive == post.id:
+                j += 1
+                print('False positive found.')
+
+    return i, j
 
 main()
