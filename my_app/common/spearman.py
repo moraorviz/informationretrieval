@@ -26,6 +26,7 @@ class Spearman:
         # in both lists.
         words_t = []
         words_r = []
+        # Gets only they keys (the words) from the output lists.
         for i, v in self.textrank_output:
             words_t.append(i)
         for i, v in self.rootlog_output:
