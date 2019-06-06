@@ -1,8 +1,9 @@
-'''logging_helper.py
+'''Custom logging module.
 
 Define our own logger by creating an object of the
 Logger class. It's configured using Handlers and Formatters instead of
 basicConfig() method.
+
 '''
 
 import logging

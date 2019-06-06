@@ -8,213 +8,15 @@ Processing.
 
 '''
 
+import collections
 # import pdb
-import itertools
-import json
-import bz2
-import zipfile
+
 import numpy as np
-import re
-import contractions
-from string import punctuation
-from nltk.tokenize import sent_tokenize, word_tokenize
-from nltk.corpus import stopwords, words
-from collections import OrderedDict, Counter
-# Import custom logger
-from .logging_helper import logger
 
-
-def symmetrize(a):
-    '''Utility method to symmetrice a given square matrix.
-
-    Parameters
-    ----------
-    a : array
-        Numpy input matrix.
-    '''
-
-    return a + a.T - np.diag(a.diagonal())
-
-
-def remove_nestings(sentences_list, output_list):
-    '''Utility recursive method to conver nested lists into a normal list.
-
-    Parameters
-    ----------
-    sentences_list: list
-        Input list.
-    output_list:list
-        Empty list.
-    '''
-
-    for item in sentences_list:
-        if type(item) == list:
-            TextCleaner.remove_nestings(item, output_list)
-        else:
-            output_list.append(item)
-
-    return output_list
-
-
-class Words:
-    '''
-    Class to extract and organize the words in the reddit repository.
-
-    Attributes
-    ----------
-    words_collection : Counter
-        A dict subclass for counting words.
-    text_id : str
-        Json object key name.
-    domain_id : str
-        Json object key name.
-    topic : str
-        Json object key name.
-    file_path : str
-        Directory location of the source file.
-
-    Methods
-    -------
-    get_text_only(nlines=50000)
-        Returns a string containing the total amount of text.
-    get_words()
-        Returns a diccionary of the words and frequencies.
-
-    '''
-
-    def __init__(self, file_path, topic):
-        '''
-        Parameters
-        ----------
-        file_path : str
-            Path to the dataset compressed file.
-        topic : str
-            Reddit topic of the forum thread
-        '''
-
-        # Class member attributes.
-        logger.debug('Initializing %s.', self.__class__.__name__)
-        self.words_collection = Counter()
-        self.text_id = 'selftext'
-        self.domain_id = 'domain'
-        self.topic = topic
-        self.file_path = file_path
-
-    def get_text_only(self, nlines=50000):
-        '''Returns a string containing the total amount of text.
-
-        By default it parses 50000 lines of texts.
-        Parameters
-        ----------
-        nlines : int, optional
-            Number of lines to parse.
-        '''
-
-        # Empty string object as a container for the text.
-        text_total = ''
-
-        with bz2.open(self.file_path, 'rt') as reddit_file:
-            for line in itertools.islice(reddit_file, 0, nlines):
-                dataset = json.loads(line)
-                if (dataset[self.domain_id] == self.topic):
-                    text = dataset[self.text_id]
-                    text_total += text
-
-        return text_total
-
-    def get_words(self, nlines):
-        '''Returns a dictionary where they keys are the words
-        in the text and the values are their frequencies.
-
-        It updates the words_collection datamember with they key,
-        value pairs obtained in the iterations over the text lines.
-
-        Parameters
-        ----------
-        nlines: int, optional
-            Number of lines to parse.
-        '''
-
-        with bz2.open(self.file_path, 'rt') as reddit_file:
-            for line in itertools.islice(reddit_file, 0, nlines):
-                dataset = json.loads(line)
-                if (dataset[self.domain_id] == self.topic):
-                    text = dataset[self.text_id]
-                    tokens = word_tokenize(text)
-                    tokens = [word for word in tokens if word.isalpha()]
-                    tokens = [word.lower() for word in tokens]
-                    self.words_collection.update(tokens)
-
-            return self.words_collection
-
-
-class VectorRepr:
-    '''
-    Class made to dive into the word vector representations and apply
-    it to the problem.
-
-    It can be neccesary to apply the textrank
-    algorithm. We will use this class to find the vector for each
-    word in our data according with the vector model used by TextRank.
-
-    Attributes
-    ----------
-    None.
-
-    Methods
-    -------
-    load_zip()
-        Extracts the contents of the GloVe zip file.
-    load_glove_vectors()
-        Loads the glove vector model (GloVe) into memory.
-    '''
-
-    # Static class members.
-    VECTOR_SIZE = 50
-    EMPTY_VECTOR = np.zeros(VECTOR_SIZE)
-    GLOVE_DIR = '../resources/glove/'
-    GLOVE_ZIP = GLOVE_DIR + 'glove.6B.zip'
-    glove_vectors_file = GLOVE_DIR + 'glove.6B.50d.txt'
-
-    def __init__(self):
-        '''
-        Parameters
-        ----------
-        None.
-        '''
-
-        logger.debug('Initializing %s.', self.__class__.__name__)
-        # Load the glove vectors at initialization time.
-        self.glove_vectors = VectorRepr.load_glove_vectors()
-
-    def load_zip(self):
-        zip_ref = zipfile.ZipFile(self.GLOVE_ZIP, 'r')
-        zip_ref.extractall(self.GLOVE_DIR)
-        zip_ref.close()
-
-    @staticmethod
-    def load_glove_vectors():
-        '''Loads the contents of the glove pre-trained model into memory.
-
-        Parameters
-        ----------
-        None.
-        '''
-
-        logger.debug('Loading Glove Model.')
-        with open(VectorRepr.glove_vectors_file,
-                  'r', encoding='utf8') as glove_vector_file:
-
-            model = {}
-
-            for line in glove_vector_file:
-                parts = line.split()
-                word = parts[0]
-                embedding = np.array([float(val) for val in parts[1:]])
-                model[word] = embedding
-                # print('Loaded {} words'.format(len(model)))
-
-        return model
+from . import logging_helper as lh
+from . import data
+from . import persistence
+from . import utils
 
 
 class TextRank:
@@ -251,7 +53,7 @@ class TextRank:
         Performs the iterative steps.
     '''
 
-    def __init__(self, sentences):
+    def __init__(self, word):
         '''
         Parameteres
         -----------
@@ -259,31 +61,25 @@ class TextRank:
             A list of strings containing all the sentences.
         '''
 
-        logger.debug('Initializing %s.', self.__class__.__name__)
+        lh.logger.debug('Initializing %s.', self.__class__.__name__)
+
         self.d = 0.85
         self.min_diff = 1e-5
         self.window_size = 4
-        self.sentences = sentences
         self.steps = 10
         self.node_weight = None
+        self.word = word
 
-    def get_vocabulary(self):
-        '''Returns a dictionary containing all the words in the text.
+    def symmetrize(self, a):
+        '''Utility method to symmetrice a given square matrix.
 
-        Parameteres
-        -----------
-        None.
+        Parameters
+        ----------
+        a : array
+            Numpy input matrix.
         '''
 
-        vocab = OrderedDict()
-        i = 0
-        for sentence in self.sentences:
-            for word in sentence:
-                if word not in vocab:
-                    vocab[word] = i
-                    i += 1
-
-        return vocab
+        return a + a.T - np.diag(a.diagonal())
 
     def get_token_pairs(self):
         '''Returns a list with all the tokens pairs formed from the
@@ -298,7 +94,9 @@ class TextRank:
         '''
 
         token_pairs = list()
-        for sentence in self.sentences:
+        sentences = self.word.get_sentences()
+
+        for sentence in sentences:
             for i, word in enumerate(sentence):
                 for j in range(i+1, i+self.window_size):
                     if j >= len(sentence):
@@ -318,14 +116,13 @@ class TextRank:
             Maximum number of iterations.
         '''
 
-        logger.debug('Executing %s method'
-                     ' with n = %s.', self.get_keywords.__name__, total_words)
+        lh.logger.debug('Executing %s.', self.get_keywords.__name__)
 
         # Inialize empty dictionary for storing the results.
         wordrank = {}
 
         # Prepare the results.
-        node_weight = OrderedDict(
+        node_weight = collections.OrderedDict(
             sorted(self.node_weight.items(), key=lambda t: t[1],
                    reverse=True))
 
@@ -338,6 +135,26 @@ class TextRank:
                 break
 
         return wordrank
+
+
+    def get_vocabulary(self):
+        '''Returns a dictionary containing all the words in the text.
+
+        Parameteres
+        -----------
+        None.
+        '''
+
+        vocab = collections.OrderedDict()
+        sentences = self.word.get_sentences()
+        i = 0
+        for sentence in sentences:
+            for word in sentence:
+                if word not in vocab:
+                    vocab[word] = i
+                    i += 1
+
+        return vocab
 
     def get_matrix(self):
         '''Constructs the initial transition matrix required by the model.
@@ -360,7 +177,7 @@ class TextRank:
             i, j = vocab[word1], vocab[word2]
             g[i][j] = 1
 
-        g = symmetrize(g)
+        g = self.symmetrize(g)
 
         norm = np.sum(g, axis=0)
         g_norm = np.divide(g, norm, where=norm != 0)
@@ -378,7 +195,8 @@ class TextRank:
             Initial matrix given by get_matrix method.
         '''
 
-        logger.debug('Executing %s method.', self.iterate.__name__)
+        lh.logger.debug('Executing %s method.', self.iterate.__name__)
+
         vocab = self.get_vocabulary()
         pr = np.array([1] * len(vocab))
         previous_pr = 0
@@ -398,142 +216,38 @@ class TextRank:
 
         self.node_weight = node_weight
 
+    def calc(self):
+        '''Perform the calculations. Returns a ranked list of words.'''
 
-class TextCleaner:
-    '''A utility class for text cleaning purposes.
+        matrix = self.get_matrix()
+        self.iterate(matrix)
+        keywords = self.get_keywords()
 
-    Attributes
-    ----------
-    text_data: str
-        Input text to be cleaned.
+        return keywords
 
-    Methods
-    -------
-    clean(word):
-        Removes characters from a given string.
-    '''
 
-    # Static class members.
-    # Regular expression for keeping characters only.
-    CLEAN_PATTERN = r'[^a-zA-z\s]'
-    # Collection of common words to eliminate from the input data.
-    stop_words = stopwords.words('english')
-    STOP_WORDS = set(stop_words + list(punctuation))
-    MIN_WORD_PROP, MAX_WORD_PROP = 0.1, 0.9
+class TextRankClient:
+    '''A client for the textrank object.'''
 
-    def __init__(self, text_data):
-        '''
-        Parameters
-        ----------
-        text_data: str
-            Input text to be processed.
-        '''
+    INPUT = 'app/resources/RS_2017-10.bz2'
+    OUTPUT = 'app/output/textrank.json'
+    REDDIT_TOPIC = 'self.depression'
 
-        logger.debug('Initializing %s.', self.__class__.__name__)
-        self.text_data = text_data
+    def __init__(self):
+        lh.logger.debug('Initializing %s.', self.__class__.__name__)
+        self.fetch = data.Fetch(self.INPUT, self.REDDIT_TOPIC)
 
-    # Methods for text cleaning purposes.
-    # Cleans the given world using regular expressions.
-    @staticmethod
-    def clean(word):
-        return re.sub(TextCleaner.CLEAN_PATTERN, '', word)
+    def get_words(self):
+        reddit_posts = self.fetch.get_posts()
+        word = data.Word(reddit_posts)
+        textrank = TextRank(word)
+        scores = textrank.calc()
+        order_scores = utils.order_dict_scores(scores)
+        persistence.save_json(order_scores, self.OUTPUT)
+        return order_scores
 
-    # CLeans a whole sentence.
-    @staticmethod
-    def clean_sentence(sentence):
-        sentence = [TextCleaner.clean(word) for word in sentence]
-        return [word for word in sentence if word and word != '``']
-
-    # Cleans a set of sentences.
-    @staticmethod
-    def clean_sentences(sentences):
-        return [TextCleaner.clean_sentence(sentence)
-                for sentence in sentences]
-
-    # Converts the words in the sentence into lower caps.
-    @staticmethod
-    def lower(sentence):
-        return [word.lower() for word in sentence]
-
-    # Another static cleaning method for deleting non-existant words within
-    # a sentence.
-    @staticmethod
-    def word_in_dictionary(sentence):
-        return [word for word in sentence if word in words.words()]
-
-    def remove_stopwords_sent(sentences):
-        return [TextCleaner.remove_stopwords(sentence)
-                for sentence in sentences]
-
-    # Removes the very common words in the sentence.
-    @staticmethod
-    def remove_stopwords(sentence):
-        words = [word for word in sentence if word not
-                 in TextCleaner.stop_words]
-        result = [word for word in words if len(word) > 1]
-
-        return result
-
-    # Tokenizes the sentences into words.
-    @staticmethod
-    def tokenize_words(sentences):
-        return [word_tokenize(sentence) for sentence in sentences]
-
-    @staticmethod
-    def fix_contractions(sentences):
-        return [contractions.fix(sentence) for sentence in sentences]
-
-    @staticmethod
-    def compute_word_frequencies(word_sentences):
-        '''Removes very common words that contribute nothing to the
-        case study.
-
-        Parameters
-        ----------
-        word_sentences: list
-            Input set of sentences to clean.
-        '''
-
-        words = [word for sentence in word_sentences
-                 for word in sentence
-                 if word not in TextCleaner.STOP_WORDS]
-
-        counter = Counter(words)
-        limit = float(max(counter.values()))
-
-        # Calculate words frequencies.
-        word_frequencies = {word: freq/limit for word, freq
-                            in counter.items()}
-
-        # Drop words if too common or too uncommon.
-        word_frequencies = {word: freq
-                            for word, freq in word_frequencies.items()
-                            if freq > TextCleaner.MIN_WORD_PROP and
-                            freq < TextCleaner.MAX_WORD_PROP}
-
-        return word_frequencies
-
-    def process_text_sentences(self):
-        '''Uses the static methods to clean the text dataset.
-
-        Operates and updates the value of the class member text_data.
-
-        Parameters
-        ----------
-        None.
-        '''
-
-        logger.debug('Executing %s method.',
-                     self.process_text_sentences.__name__)
-        # Breakpoint.
-        # pdb.set_trace()
-        # Uses sent_tokenize method from nltk
-        sentences = sent_tokenize(self.text_data)
-        # Applies the previously defined static methods.
-        clean1 = TextCleaner.fix_contractions(sentences)
-        clean2 = TextCleaner.lower(clean1)
-        clean3 = TextCleaner.tokenize_words(clean2)
-        clean4 = TextCleaner.clean_sentences(clean3)
-        clean5 = TextCleaner.remove_stopwords_sent(clean4)
-
-        return clean5
+def main():
+    trcli = TextRankClient()
+    words = trcli.get_words()
+    print(words)
+    print(len(words))

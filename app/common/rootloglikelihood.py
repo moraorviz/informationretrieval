@@ -11,160 +11,86 @@ import collections
 import itertools
 import bz2
 import json
-import nltk
 import urllib.request
 import tempfile
 import math
-# Import custom logger.
-from .logging_helper import logger
-from nltk.corpus import stopwords
 
-
-class DataGenerator:
-    '''
-    A class for generating collections of words to be
-    compared by LLRImpl class. The words are extracted from a
-    reddit dataset in json format.
-
-    Attributes
-    ----------
-    filename : str
-        path to the source file.
-    topic_name : str
-        the name of the reddit topic field used as a key in the json.
-
-    Methods
-    -------
-    getwords(nlines=50000)
-        returns a dictionary of words and frequencies.
-    '''
-
-    # Static class members.
-    stop_words = stopwords.words('english')
-
-    def __init__(self, filename, topic_name):
-        '''
-        Parameters
-        ----------
-        filename : str
-            source file path.
-        '''
-        logger.debug('Initializing %s.', self.__class__.__name__)
-
-        self.text_id = 'selftext'
-        self.domain_id = 'domain'
-        self.depr_value = topic_name
-        self.filename = filename
-        self.depression_coll = collections.Counter()
-
-    def getwords(self, nlines=50000):
-        '''Uncompresses the dataset, parses the resultant json and extract
-        words into a collection.
-
-        Parameters
-        ----------
-        nlines : int
-            scope, total number of lines to parse in the json.
-        '''
-        logger.debug('Executing %s.', self.getwords.__name__)
-
-        with bz2.open(self.filename, 'rt') as reddit_file:
-            for line in itertools.islice(reddit_file, 0, nlines):
-                dataset = json.loads(line)
-                if (dataset[self.domain_id] == self.depr_value):
-                    text = dataset[self.text_id]
-                    tokens = nltk.word_tokenize(text)
-                    tokens = [word for word in tokens if word.isalpha()]
-                    tokens = [word.lower() for word in tokens]
-                    # Remove stop words
-                    tokens = [word for word in tokens
-                              if word not in DataGenerator.stop_words]
-                    tokens = [word for word in tokens
-                              if len(word) > 1]
-                    self.depression_coll.update(tokens)
-
-        return self.depression_coll
+from . import logging_helper as lh
+from . import utils
+from . import persistence
+from . import data
 
 
 class CommonWord:
-        '''
-        A class for processing the list of most common words.
-        Returns a dictionary of most common words and frequencies
+    '''
+    A class to operate on the Peter Norvig's list of common words.
 
-        Attributes
+    Attributes
+    ----------
+    None.
+
+    Methods
+    -------
+    getwords()
+        Downloads the words list from the internet. 
+    save()
+        Saves the dict of words in json format.
+    '''
+
+    NORVIG_URL = 'http://norvig.com/ngrams/count_1w.txt'
+    NORVIG_JSON_FILE = 'app/output/norvig.json'
+
+    def __init__(self):
+        lh.logger.debug('Initializing %s.', self.__class__.__name__)
+
+    def getwords(self):
+        '''Downloads the collection of words and stores it in a dict.
+
+        Returns the dictionary.
+
+        Parameters
         ----------
-        url : string
-            resource for most common words.
-        commonwords_coll : dic
-            container for the results.
-
-        Methods
-        -------
-        getwords()
-            loads contents into the class members.
-        strfreqtoint(collection)
-            changes the data type of values in a collection.
+        None.
         '''
 
-        def __init__(self):
-            '''
-            Parameters
-             ----------
-            none.
-            '''
-            logger.debug('Initializing %s.', self.__class__.__name__)
+        lh.logger.debug('Executing %s.', self.getwords.__name__)
 
-            self.url = 'http://norvig.com/ngrams/count_1w.txt'
-            self.commonwords_coll = {}
+        words = {}
+        temp = tempfile.TemporaryFile(mode='w+t')
 
-        def getwords(self):
-            '''Downloads the contents of the file specified in the url
-            and loads them into memory inside a dict object's member
-            class for further usage, basically for filtering common words.
+        try:
+            with urllib.request.urlopen(self.NORVIG_URL) as response:
+                lh.logger.debug('Opening the temp file.')
+                html = response.read().decode('utf-8')
+                temp.writelines(html)
+                temp.seek(0)
 
-            Parameters
-            ----------
-                none.
-            '''
+            for line in temp:
+                word, count = line.split()
+                words[word] = count
 
-            logger.debug('Executing getwords method of %s.', self.__class__.
-                         __name__)
+        finally:
+            lh.logger.debug('Closing the temp file.')
+            temp.close()
 
-            temp = tempfile.TemporaryFile(mode='w+t')
+        formatted_words = utils.string_freq_toint(words)
 
-            try:
-                with urllib.request.urlopen(self.url) as response:
-                    logger.debug('Opening the temp file.')
-                    html = response.read().decode('utf-8')
-                    temp.writelines(html)
-                    temp.seek(0)
+        return formatted_words
 
-                for line in temp:
-                    word, count = line.split()
-                    self.commonwords_coll[word] = count
+    def save(self):
+        '''Saves the collection of words in json format.
 
-            finally:
-                logger.debug('Closing the temp file.')
-                temp.close()
+        Parameters
+        ---------- 
+        None.
+        '''
 
-            return self.strfreqtoint(self.commonwords_coll)
-
-        def strfreqtoint(self, collection):
-            '''Converts frequency values to integers in a given collection.
-
-            Parameters
-            ----------
-            collection: coll
-                input collection.
-            '''
-
-            for word in collection.keys():
-                collection[word] = int(collection[word])
-
-            return collection
+        lh.logger.debug('Executing %s.', self.save.__name__)
+        norvig_words = self.getwords()
+        persistence.save_json(norvig_words, self.NORVIG_JSON_FILE)
 
 
-class RootLogLikelihoodRatio:
+class RootLog:
     '''
     A class for implementing the mentioned algorithm over the Reddit
     and Peter Norvig's datasets.
@@ -172,9 +98,9 @@ class RootLogLikelihoodRatio:
     Attributes
     ----------
     reddit_collection : coll
-        Input collection with the words.
+        Collection of reddit words and occurrences.
     common_collection: coll
-        Collection of commond word for cleaning purposes.
+        Collection of commond words and ocurrences.
     scores : dict
         Container for the final results.
 
@@ -185,9 +111,8 @@ class RootLogLikelihoodRatio:
     applyllr()
     '''
 
-    # Class initializer method.
     def __init__(self, reddit_collection, common_collection):
-        logger.debug('Initializing %s.', self.__class__.__name__)
+        lh.logger.debug('Initializing %s.', self.__class__.__name__)
         self.reddit_collection = reddit_collection
         self.common_collection = common_collection
         self.scores = {}
@@ -227,7 +152,7 @@ class RootLogLikelihoodRatio:
         none.
         '''
 
-        logger.debug('Executing %s method.', self.applyllr.__name__)
+        lh.logger.debug('Executing %s method.', self.applyllr.__name__)
 
         # Calculate the scores for the all the dataset.
         for word, frequency in self.reddit_collection.items():
@@ -240,3 +165,28 @@ class RootLogLikelihoodRatio:
             self.scores[word] = result
 
         return self.scores
+
+
+class RootLogClient:
+    '''A client for the RootLog class.'''
+
+    INPUT = 'app/resources/RS_2017-10.bz2'
+    OUTPUT = 'app/output/rootlog.json'
+    COMMON_WORDS = 'app/output/norvig.json'
+    REDDIT_TOPIC = 'self.depression'
+
+    def __init__(self):
+        lh.logger.debug('Initializing %s.', self.__class__.__name__)
+        self.fetch = data.Fetch(self.INPUT, self.REDDIT_TOPIC)
+
+    def get_ranked_words(self):
+        reddit_posts = self.fetch.get_posts()
+        word = data.Word(reddit_posts)
+        reddit_words = word.get_words()
+        common_words = persistence.load_json(self.COMMON_WORDS)
+        rootlog = RootLog(reddit_words, common_words)
+        scores = rootlog.applyllr()
+        order_scores = utils.order_dict_scores(scores)
+        persistence.save_json(order_scores, self.OUTPUT)
+        
+        return order_scores 

@@ -4,12 +4,11 @@ Entry point of the application. Front-end logic. Console UI.
 Calls the clients depending on the user input.
 '''
 
-# Import self modules and classes.
+import argparse
+
 from .common.logging_helper import logger
 from .common.rootlog_client import RootLogClient
 from .common.textrank_client import TextRankClient
-# Import core libs.
-import argparse
 
 
 # TODO: add an argument to execute the spearman coefficent
