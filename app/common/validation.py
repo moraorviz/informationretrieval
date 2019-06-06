@@ -3,211 +3,59 @@ of our method to detect evidence of depression in the reddit's posts.
 
 '''
 
-import json
-import itertools
-import bz2
-import contractions
 from collections import OrderedDict, Counter
 
 from . import logging_helper as lh
 from . import clean
-from .textrank_client import TextRankClient
-from .rootlog_client import RootLogClient
+from . import utils
+from . import persistence
+from . import data
 
 
-tr_json_file = 'app/output/textrank.json'
-rl_json_file = 'app/output/rootlog.json'
-
-# Persist results in json files.
-# One time execution.
-# TODO check if the files are already there with data as a first step.
-def persist_results():
-    # Create the objects
-    word = Word()
-    # Get results from the algorithms.
-    tr_lst = word.get_trlist()
-    rl_lst = word.get_rllist()
-    # Save the results.
-    filemanager.save_json(tr_lst, tr_json_file)
-    filemanager.save_json(rl_lst, rl_json_file)
-
-def get_common_list(list_a, list_b):
-    '''Returns a list of 100 central terms from both outputs'''
-
-    lh.logger.debug('Executing %s.', get_common_list.__name__)
-    # Initialize empty lists
-    words_a = []
-    words_b = []
-    # Iterate through the input lists. Append words only.
-    for i, v in list_a:
-        words_a.append(i)
-    for i,v in list_b:
-        words_b.append(i)
-    # Get the intersection of sets.
-    matching_words = set(words_a) & set(words_b)
-    # Return the results.
-    return matching_words
-
-def punctrl(words, lroot):
-    '''Assigns each word within a list it's punctuation according
-    to logroot algorithm.
-
-    Parameters
-    ----------
-        words : list
-            Input list of words.
-        lroot : dict 
-            Ranked words.
-    '''
-    # Initalize the output lists.
-    output_lst = []
-
-    # Double iteration.
-    # Iterate over the list of words.
-    for w in words:
-        for i, v in lroot.items():
-            if w == i:
-                pair = (w , v)
-                output_lst.append(pair)
-    
-    return output_lst
-
-def getrlwords():
-    '''Get the list of rootlog ranked words.'''
-
-    # Deserialize persisted json data into a json dictionary object in memory.
-    rl_data_json = deser_json(rl_json_file)    
-    tr_data_json = deser_json(tr_json_file)
-    # Convert the resulting dictionary into a list for easier manipulation.
-    rl_list = dict2list(rl_data_json)
-    tr_list = dict2list(tr_data_json)
-    # Get the common set of 100 first common terms.
-    common_set = get_common_list(rl_list, tr_list)
-    sliced_set = set(itertools.islice(common_set, 100))
-    # Transform the set into a list for easier manipulation.
-    sliced_lst = list(sliced_set)
-    # Punctuate the words in the list.
-    punctuated_lst = punctrl(sliced_lst, rl_data_json) 
-    # Purge for trivial coincidences.
-    # purged_lst = purge(sliced_lst)
-    # Return the results
-    return punctuated_lst
+TR_FILE = 'app/output/textrank.json'
+RL_FILE = 'app/output/rootlog.json'
+SOURCE_FILE = 'app/resources/RS_2017-10.bz2'
 
 
-class Word:
-    '''A class for invoking the neccesary algorithms to obtain the results.'''
+def combine(dict_textrank, dict_rootlog):
+    '''Returns a list of 100 central terms from both outputs.'''
 
-    def __init__(self):
-        lh.logger.debug('Initializing %s.', self.__class__.__name__)
-        self.textrank = TextRankClient()
-        self.rootlog = RootLogClient()
+    keys_a = set(dict_textrank.keys())
+    keys_b = set(dict_rootlog.keys())
+    intersection = keys_a & keys_b
 
-    def get_trlist(self):
-        return self.textrank.get_ordered_output()
+    list_a = utils.order_list(utils.dict2list(dict_textrank))
+    list_b = utils.order_list(utils.dict2list(dict_rootlog))
 
-    def get_rllist(self):
-        return self.rootlog.get_ordered_output()
+    dict_a = dict(list_a[:300])
+    dict_b = dict(list_b[:300])
 
-    def persist_results(self):
-        pass
-    
-class Classificator:
-    '''
-    Operates on the dataset and classifies the posts.
+    set_a = dict_a.keys()
+    set_b = dict_b.keys()
+    inter = set_a & set_b
 
-    Parameters
-    ----------
-    rwords : lst 
-        List with ranked words according to rootlog algorithm.
-    '''
+    scored_lst = []
+    for i in inter:
+        score = dict_b[i]
+        pair = (i, score)
+        scored_lst.append(pair)
 
-    # Static class members.
-    INPUT = 'app/resources/RS_2017-10.bz2'
-    OUTPUT = 'app/output/classification.json'
-    REDDIT_TOPIC = 'self.offmychest'
-    DOMAIN_ID = 'domain'
-    TEXT_ID = 'selftext'
-    ID_ID = 'id'
+    scored_dict = dict(utils.order_list(scored_lst[:100]))
 
-    def __init__(self):
-        lh.logger.debug('Initializing %s.', self.__class__.__name__)
+    return scored_dict
 
-    def get_posts(self, nlines = 500000):
-        lh.logger.debug('Inspecting file...')
-        # Initialize output list.
-        o_lst = []
-        # Start context manager.
-        with bz2.open(self.INPUT, 'rt') as reddit_file:
-            for line in itertools.islice(reddit_file, 0, nlines):
-                # Count lines.
-                # Load into a variable in memory as a json object.
-                dataset = json.loads(line)
-                # Check for the desired subreddit.
-                if dataset[self.DOMAIN_ID] == self.REDDIT_TOPIC:
-                    # Extract the id of the post.
-                    id = dataset[self.ID_ID]
-                    # Extract the text of the post.
-                    text = dataset[self.TEXT_ID]
-                    # Create a custom post object with the obtained data.
-                    custompost = CustomPost(id, text)
-                    # Append the content to a list to store the results.
-                    o_lst.append(custompost)
+def get_posts():
+    '''Returns a lists of punctuated posts.'''
 
-        # Return total posts. 
-        return o_lst
+    posts = []
 
+    rootlog_rw = persistence.load_json(TR_FILE) 
+    textrank_rw = persistence.load_json(RL_FILE)
 
-    
+    # fetch = data.Fetch(SOURCE_FILE, 'self.offmychest')
 
-def main():
-    # Get list of posts with associated score.
-    lst = getposts_wscore()    
-    # Sort the list in descending order.
-    olist = order_posts(lst)
-    # Return the top/less rated lists.
-    top_rated, less_rated = divide_posts(olist)
-    # Join both top and less rated lists.
-    merged_list = top_rated + less_rated
-    print(len(merged_list))
-    # Get positives and negatives.
-    positives, negatives = get_positives_negatives(merged_list)
-    print(len(positives))
-    print(len(negatives))
-    i, j = get_true_positives(positives, top_rated, less_rated)
-    print(i, j)
-    
-    # TODO: save the results in json format.
+    return rootlog_rw, textrank_rw
 
-def getposts_wscore():
-    '''Returns a list of 378 (hc) punctuated posts.
-
-    Parameters
-    ----------
-    None.
-    '''
-
-    posts_out = []
-    da = deser_json(rl_json_file)
-    classificator = Classificator()
-    posts_in = classificator.get_posts(500000)
-
-    for post in posts_in:
-        post.set_cleantext()
-        post.calculate_score(da)
-        posts_out.append(post)
-
-    return posts_out
-
-def order_posts(plist):
-    '''Returns an ordered list by attribute.
-
-    Parameters
-    ----------
-    plist : list
-        Input list of posts.
-    '''
-
-    return sorted(plist, key=lambda x: x.score, reverse = True)
 
 def divide_posts(olist):
     '''Returns two list with the most/less scored posts.
@@ -274,5 +122,11 @@ def get_true_positives(positives, top, less):
 
     return i, j
 
+def main():
+    
+    rootlog, textrank = get_posts()
+    dic = combine(textrank, rootlog)
+    utils.printdict(dic)
+    print(len(dic))
 
 main()

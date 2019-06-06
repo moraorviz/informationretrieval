@@ -10,18 +10,20 @@ def dict2list(mydict):
     Returns a list.
     '''
 
-    output_list = []
+    outlist = []
     for key, value in mydict.items():
-        output_list.append((key, value))
+        outlist.append((key, value))
+
+    return outlist
 
 
-def printdict(self, mydict):
+def printdict(mydict):
     '''Prints the contents of mydict to the console with a proper string formatting.
 
     Returns nothing.
     '''
 
-    for key, value in dict.items():
+    for key, value in mydict.items():
         print(f'{key:<4} {value}')
 
 
@@ -58,3 +60,15 @@ def remove_nestings(inlist, outlist):
             remove_nestings(item, outlist)
         else:
             outlist.append(item)
+
+def order_posts(posts_list):
+    '''Returns an ordered lists of posts by score attribute by descending order.'''
+
+    return sorted(posts_list, key=lambda x: x.score, revese = True)
+    
+def order_list(my_list):
+    '''Orders a list of tuples by second item'''
+
+    outlist = sorted(my_list, key=lambda x: x[1], reverse=True)
+
+    return outlist

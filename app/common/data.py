@@ -106,8 +106,7 @@ class CustomPost:
         self.score = 0
 
     def set_score(self, ranked_words):
-        '''Calculates and assign the score to itself according to a
-        provided reference of ranked words.
+        '''Calculates and sets the score attribute based on ranked_words.
 
         Parameters
         ----------
