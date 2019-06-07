@@ -3,6 +3,8 @@ of our method to detect evidence of depression in the reddit's posts.
 
 '''
 
+import operator
+import json
 from collections import OrderedDict, Counter
 
 from . import logging_helper as lh
@@ -17,8 +19,14 @@ RL_FILE = 'app/output/rootlog.json'
 SOURCE_FILE = 'app/resources/RS_2017-10.bz2'
 
 
-def combine(dict_textrank, dict_rootlog):
+def combine(dict_textrank=None, dict_rootlog=None, save=False):
     '''Returns a list of 100 central terms from both outputs.'''
+
+    if dict_textrank == None:
+        dict_textrank = persistence.load_json('app/output/textrank.json')
+    
+    if dict_rootlog == None:
+        dict_rootlog = persistence.load_json('app/output/rootlog.json')
 
     keys_a = set(dict_textrank.keys())
     keys_b = set(dict_rootlog.keys())
@@ -34,54 +42,77 @@ def combine(dict_textrank, dict_rootlog):
     set_b = dict_b.keys()
     inter = set_a & set_b
 
-    scored_lst = []
-    for i in inter:
-        score = dict_b[i]
-        pair = (i, score)
-        scored_lst.append(pair)
+    outdct = {}
+    for word in inter:
+        score = dict_b[word]
+        outdct[word] = score
 
-    scored_dict = dict(utils.order_list(scored_lst[:100]))
+    sorted_lst = sorted(outdct.items(), key=operator.itemgetter(1), reverse=True)
 
-    return scored_dict
+    if save:
+        persistence.save_json(sorted_lst[:100], 'app/output/centralterms.json')
 
-def get_posts():
-    '''Returns a lists of punctuated posts.'''
-
-    posts = []
-
-    rootlog_rw = persistence.load_json(TR_FILE) 
-    textrank_rw = persistence.load_json(RL_FILE)
-
-    # fetch = data.Fetch(SOURCE_FILE, 'self.offmychest')
-
-    return rootlog_rw, textrank_rw
+    return sorted_lst
 
 
-def divide_posts(olist):
-    '''Returns two list with the most/less scored posts.
+def load_ranked_words():
+    '''Returns dicts of punctuated words in json format.'''
+
+    rootlog_rw = persistence.load_json(RL_FILE) 
+    textrank_rw = persistence.load_json(TR_FILE)
+    central_rw = persistence.load_json('app/output/centralterms.json')
+
+    return rootlog_rw, textrank_rw, central_rw
+
+def punctwords(save):
+    '''Punctuates a list of words according to a reference list and
+    saves into a file in json format.'''
+    rl, tr = load_ranked_words()
+    lst = combine(tr, rl)
+
+    outdct = {}
+    for word in lst:
+        for key, val in rl.items():
+            if word == key:
+                outdct[word] = val
+
+    if save:
+        persistence.save_json(outdct, 'app/output/centralterms2.json')
+
+    return outdct
+
+
+def top_posts(n=100000):
+    '''Returns two lists with the most/less scored posts. Also persists
+    in json format.
 
     Parameters
     ---------- 
-    olist : list
-        Ordered list of posts.
+    None.
     '''
 
-    return olist[:100], olist[:-101:-1]
+    imwords = persistence.load_json('app/output/centralterms.json')
+    omc_fetch = data.Fetch(SOURCE_FILE, 'self.offmychest')
+    omc_posts = omc_fetch.get_posts(n, imwords)
+    lh.logger.debug('Parsing %s lines.', n)
+    tposts = utils.order_posts(omc_posts)
+    top100 = tposts[:100]
+    less100 = tposts[:-101:-1]
 
-def get_positives_negatives(lst):
-    '''Given a list of total posts returns two lists of positive and negative cases.
-    
-    Parameters
-    ----------
-    lst : list
-        Input list of total ranked posts.
+    return top100, less100
+
+
+def get_positives(n):
+    '''Calculates the true positives.    
     '''
 
     positives = []
     negatives = []
-    for post in lst: 
+    top100, less100 = top_posts(n)
+    topandless = top100 + less100
+    for post in topandless: 
         hit = False
-        for sentence in post.cleantext:
+        for sentence in post.text:
             for word in sentence:
                 if 'depres' in word:
                     hit = True
@@ -91,6 +122,7 @@ def get_positives_negatives(lst):
             negatives.append(post)
 
     return positives, negatives
+
 
 def get_true_positives(positives, top, less):
     '''Given a list of positives and top rated posts, calculates the number of true positives.
@@ -123,10 +155,13 @@ def get_true_positives(positives, top, less):
     return i, j
 
 def main():
+
+    lh.logger.debug('Starting %s.', main.__name__)
     
-    rootlog, textrank = get_posts()
-    dic = combine(textrank, rootlog)
-    utils.printdict(dic)
-    print(len(dic))
+    positives, negatives = get_positives(100000)
+    print(len(positives))
+
+    lh.logger.debug('Done.')
+
 
 main()

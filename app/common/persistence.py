@@ -14,6 +14,11 @@ def save_json(data, outfile):
         json.dump(dict(data), of)
 
 
+def save_json_2(dct, outfile):
+    with open(outfile, 'w') as of:
+        json.dump(dct, of)
+
+
 def load_json(outfile):
     '''Loads the data in the specified .json file into an object in memory.'''
 

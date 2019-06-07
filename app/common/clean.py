@@ -81,6 +81,16 @@ def cleantext(text):
 
     return clean5
 
+
+def clean_wo_tokenize(text):
+
+    sentences = sent_tokenize(text)
+    clean1 = fix_contractions(sentences)
+    clean2= lower(clean1)
+
+    return clean2
+
+
 def purge_depres(word_list):
     '''Eliminates the words in the list which contain the substring 'depres'.'''
 

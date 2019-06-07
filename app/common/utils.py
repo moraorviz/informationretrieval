@@ -61,14 +61,27 @@ def remove_nestings(inlist, outlist):
         else:
             outlist.append(item)
 
+
 def order_posts(posts_list):
     '''Returns an ordered lists of posts by score attribute by descending order.'''
 
-    return sorted(posts_list, key=lambda x: x.score, revese = True)
-    
+    return sorted(posts_list, key=lambda x: x.score, reverse=True)
+
+
 def order_list(my_list):
     '''Orders a list of tuples by second item'''
 
     outlist = sorted(my_list, key=lambda x: x[1], reverse=True)
 
     return outlist
+
+def isdepres(text):
+    '''Takes the text from a post and detects if its depres or not. Returns boolean.'''
+
+    isdepres = False
+    for sentence in text:
+        for word in sentence:
+            if 'depres' in word:
+                isdepres = True
+
+    return isdepres
