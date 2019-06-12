@@ -1,6 +1,7 @@
 '''This module implements some ML methods to detect users who exhibit signs of depression.'''
 
 import csv
+import random
 
 from . import data
 from . import logging_helper as lh
@@ -44,13 +45,14 @@ def process_csv(csvfile):
 
 
 def prepare_notdepression():
-    '''Returns a collection of posts of the category NotDepression.'''
+    '''Returns a list of 100 posts of the category NotDepression.'''
 
     # Fetch for non-depression topics.
     fetch = data.FetchMultiple(SOURCE_FILE, DEPTOPICS)
     posts = fetch.get_posts()
+    outlist = random.sample(posts, 100)
 
-    return posts
+    return outlist 
 
 
 def prepare_depression(n):
@@ -61,16 +63,23 @@ def prepare_depression(n):
 
     return posts 
 
+
 def prepare_input():
+    '''Calls other functions to extract collections of two families of posts: Depression and NotDepression.'''
 
     # TODO: use of random library to extract random posts for the big dataset.
     notdepr = prepare_notdepression()
-    depr = prepare_depression(500000)
+    depr = prepare_depression(50000)
     print(len(notdepr))
     print(type(notdepr))
     print('-'*10)
     print(len(depr))
     print(type(depr))
+
+
+class Classifier(lista, listb):
+    '''A class to implement the logic neccesary to classify the datasets. Uses scikit-learn toolkit.'''
+    pass
 
 
 def main():
