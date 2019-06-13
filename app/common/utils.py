@@ -75,6 +75,7 @@ def order_list(my_list):
 
     return outlist
 
+
 def isdepres(text):
     '''Takes the text from a post and detects if its depres or not. Returns boolean.'''
 
