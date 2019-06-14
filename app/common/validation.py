@@ -77,7 +77,7 @@ def punctwords(save):
                 outdct[word] = val
 
     if save:
-        persistence.save_json(outdct, 'app/output/centralterms2.json')
+        persistence.save_json(outdct, 'app/output/centralterms.json')
 
     return outdct
 

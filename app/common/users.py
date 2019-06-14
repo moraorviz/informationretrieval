@@ -2,6 +2,7 @@
 
 import csv
 import random
+import pdb
 
 from . import data
 from . import logging_helper as lh
@@ -41,6 +42,11 @@ DEPTOPICS = ['add', 'cripplingalcoholism', 'disorder', 'Health',
 'TheMixedNuts', 'tOCD', 'Tourettes', 'traumatoolbox', 'Trichsters', 'TwoXADHD',
 'uniqueminds', 'whatsbotheringyou'] 
 
+i = 0
+for element in DEPTOPICS:
+    DEPTOPICS[i] = 'self.' + element
+
+TOPICS_UNDER_STUDY = ['self.addiction', 'self.alcoholism', 'self.stopgaming']
 
 def process_csv(csvfile):
     '''Prints the contents of a csv file through console.'''
@@ -58,17 +64,34 @@ def prepare_notdepression():
     fetch = data.FetchMultiple(SOURCE_FILE, DEPTOPICS)
     posts = fetch.get_posts()
     outlist = random.sample(posts, 100)
-
+ 
     return outlist 
 
 
 def prepare_depression(n):
-    '''Returns a colleciton of posts of the category Depression.'''
+    '''Returns a collection of posts of the category Depression.'''
 
     top = data.Top()
     posts = top.get_positives(n)
 
     return posts 
+
+
+def prepare_posts_under_study():
+    '''Returns a collection of posts belonging to one of the categories under study.'''
+
+    # Fetch the posts through our fetcher.    
+    fetch_addiction = data.Fetch(SOURCE_FILE, 'self.addiction')
+    # fetch_alcoholism = data.Fetch(SOURCE_FILE, 'self.alcoholism')
+    # fetch_stopgaming = data.Fetch(SOURCE_FILE, 'self.stopgaming')
+    # fetch_stopsmoking = data.Fetch(SOURCE_FILE, 'self.stopsmoking')
+    # Choose a higher n for more results?
+    posts_addiction = fetch_addiction.get_posts(500000)
+    # posts_alcoholism = fetch_alcoholism.get_posts(5000000)
+    # posts_stopgaming = fetch_stopgaming.get_posts(5000000)
+    # posts_stopsomking = fetch_stopsmoking.get_posts(5000000)
+
+    return posts_addiction
 
 
 def prepare_input(n=500000):
@@ -118,19 +141,9 @@ class TrainData:
             filenames = filenames
         )
 
-        # Test the method.
-        print(train.target[:10])
-        print("\n".join(train.data[0].split('\n')[:3]))
-        index = train.target[0] - 1
-        print(train.target_names[index])
-
-        for t in train.target[:10]:
-            index = t - 1
-            print(train.target_names[t - 1])
-
         return train
 
-    def train(self, train):
+    def train(self, train, input_txt_lst):
         '''Creates the bag of words.'''
 
         # Tokenizing text.
@@ -141,17 +154,17 @@ class TrainData:
         X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
         # Training a classifier.
         clf = MultinomialNB().fit(X_train_tfidf, train.target)
-        docs_new = ['Today I am having an interview.', 'Today I have bouth a new computer.']
-        X_new_counts = count_vect.transform(docs_new)
+        X_new_counts = count_vect.transform(input_txt_lst)
         X_new_tfidf = tfidf_transformer.transform(X_new_counts)
         predicted = clf.predict(X_new_tfidf)
 
-        for doc, category in zip(docs_new, predicted):
+        for doc, category in zip(input_txt_lst, predicted):
             # Offset for the index number mismatch.
-            index = category -1
+            index = category - 1
             print('%r => %s' % (doc, train.target_names[index]))
 
         # TODO: implement pipeline and do the evaluation of the performance on the test set.
+        return predicted
 
 
 def main():
@@ -162,7 +175,34 @@ def main():
     traindata = TrainData(depr, notdepr)
     # Call createBunch() method.
     train = traindata.createBunch()
-    # Call createBagOfWords() method.
-    traindata.train(train)
 
-main()
+    # Substitute with posts related with the topics separatedly.
+    posts_addiction = prepare_posts_under_study()
+    docs_addiction = []
+
+    for post in posts_addiction:
+        text = post.originaltext 
+        docs_addiction.append(text)
+
+    # Call createBagOfWords() method.
+    predicted = traindata.train(train, docs_addiction)
+    index = 0 
+    dprusers = 0
+    userlst = []
+    # Avoid user repetition.
+    # pdb.set_trace()
+    for prediction in predicted:
+        post = posts_addiction[index]
+        user = post.user
+        if prediction == 2:
+            if user not in userlst and user != '[deleted]':
+                index += 1
+                dprusers += 1
+                userlst.append(user)
+
+    print(predicted)
+    print(dprusers)
+    print(len(posts_addiction))
+
+
+main() 

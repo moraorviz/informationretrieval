@@ -1,6 +1,6 @@
 from .logging_helper import logger
-from .textrank_client import TextRankClient
-from .rootlog_client import RootLogClient
+from .textrank import TextRankClient
+from .rootloglikelihood import RootLogClient
 import math
 
 
@@ -13,6 +13,7 @@ class RankedBiasedOverlap:
     '''Implementation of the similarity measure algorithm applied for
     comparing ranked lists of equal length.
     '''
+
     def __init__(self, list_a, list_b):
         logger.debug('Initializing %s.', self.__class__.__name__)
         self.list_a = list_a
@@ -69,11 +70,11 @@ class RBOClient:
         self.rbo = None
 
     def get_list_tr(self):
-        tr_list = self.textrank_client.get_ordered_output()
+        tr_list = self.textrank_client.get_words()
         return [e[0] for e in tr_list]
 
     def get_list_rl(self):
-        rl_list = self.rootlog_client.get_ordered_output()
+        rl_list = self.rootlog_client.get_ranked_words()
         return [e[0] for e in rl_list]
 
     def set_rbo(self):

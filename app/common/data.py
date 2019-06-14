@@ -18,6 +18,7 @@ class Fetch:
     TEXT_ID = 'selftext'
     DOMAIN_ID = 'domain'
     ID_ID = 'id'
+    AUTHOR_ID = 'author'
 
     def __init__(self, source, topic):
         lh.logger.debug('Initializing %s.', self.__class__.__name__)
@@ -27,7 +28,7 @@ class Fetch:
     def get_posts(self, nlines=50000, ranked_list=None):
         '''Returns a list of fetched posts.'''
 
-        lh.logger.debug('Executing %s.', self.get_posts.__name__)
+        lh.logger.debug('Executing %s with nlines=%s.', self.get_posts.__name__, nlines)
 
         posts = []
 
@@ -37,7 +38,8 @@ class Fetch:
                 if dataset[self.DOMAIN_ID] == self.topic:
                     id = dataset[self.ID_ID]
                     text = dataset[self.TEXT_ID]
-                    custompost = CustomPost(id, text)
+                    author = dataset[self.AUTHOR_ID]
+                    custompost = CustomPost(id, text, author)
                     if ranked_list != None:
                         custompost.set_score(ranked_list)
                     posts.append(custompost)
@@ -52,14 +54,15 @@ class FetchMultiple:
     DOMAIN_ID = 'domain'
     ID_ID = 'id'
 
-    def __init__(self, source, topics):
+    def __init__(self, source, topics, discard_depress=True):
         lh.logger.debug('Initializing %s.', self.__class__.__name__)
         self.source = source
         self.topics = topics
+        self.discard_depress = discard_depress
 
     def get_posts(self, nlines=50000):
 
-        lh.logger.debug('Executing %s.', self.get_posts.__name__)
+        lh.logger.debug('Executing %s with nlines=%s.', self.get_posts.__name__, nlines)
 
         posts = []
 
@@ -67,12 +70,19 @@ class FetchMultiple:
             for line in itertools.islice(reddit_file, 0, nlines):
                 dataset = json.loads(line)
                 # Keep not-depression topics only.
-                if dataset[self.DOMAIN_ID] not in self.topics:
-                    id = dataset[self.ID_ID]
-                    text = dataset[self.TEXT_ID]
-                    # Discard if 'depres' term appears in the text.
-                    custompost = CustomPostWDepres(id, text)
-                    if not custompost.isdepres:
+                if self.discard_depress:
+                    if dataset[self.DOMAIN_ID] not in self.topics:
+                        id = dataset[self.ID_ID]
+                        text = dataset[self.TEXT_ID]
+                        custompost = CustomPostWDepres(id, text)
+                        # Discard if 'depres' term appears in the text.
+                        if not custompost.isdepres:
+                            posts.append(custompost)
+                else:
+                    if dataset[self.DOMAIN_ID] in self.topics:
+                        id = dataset[self.ID_ID]
+                        text = dataset[self.TEXT_ID]
+                        custompost = CustomPostWDepres(id, text)
                         posts.append(custompost)
 
         return posts
@@ -133,10 +143,11 @@ class Word:
 class CustomPost:
     '''A custom model for the Reddit posts.'''
 
-    def __init__(self, id, text):
+    def __init__(self, id, text, user):
         self.id = id
         self.originaltext = text
         self.text = clean.cleantext(text)
+        self.user = user
         self.score = 0
 
     def set_score(self, ranked_words):
@@ -157,7 +168,7 @@ class CustomPostWDepres(CustomPost):
     '''A child class of Custom that checks for depres at initalization.'''
 
     def __init__(self, id, text):
-        super().__init__(id, text)
+        super().__init__(id, text, user=None)
         self.isdepres = utils.isdepres(self.text)
 
 
