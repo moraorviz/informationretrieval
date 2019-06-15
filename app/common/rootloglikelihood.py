@@ -190,3 +190,10 @@ class RootLogClient:
         persistence.save_json(order_scores, self.OUTPUT)
         
         return order_scores 
+
+
+def main():
+    rlcli = RootLogClient()
+    words = rlcli.get_ranked_words()
+    lh.logger.debug('Done')
+

@@ -93,10 +93,5 @@ def main():
     rboclient.set_rbo()
     rbo = rboclient.get_rbo()
     a, b, c = rbo.overlap(1000)
-    print(a)
-    print(b)
-    print(c)
     print(_cusfloformat(rbo.rbo_min(.8, 15)))
 
-
-main()

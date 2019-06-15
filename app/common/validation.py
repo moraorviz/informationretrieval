@@ -101,6 +101,19 @@ def top_posts(n=100000):
 
     return top100, less100
 
+def save_top_posts():
+    top100, less100 = top_posts()
+    top100_dct = {}
+    less100_dct = {}
+
+    for post in top100:
+        top100_dct[post.id] = post.originaltext
+
+    for post in less100:
+        less100_dct[post.id] = post.originaltext
+
+    persistence.save_json(top100_dct, 'app/output/top_publications.json')
+    persistence.save_json(less100_dct, 'app/output/less_publications.json')
 
 def get_positives(n):
     '''Calculates the true positives.    
@@ -163,5 +176,3 @@ def main():
 
     lh.logger.debug('Done.')
 
-
-main()

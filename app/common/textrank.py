@@ -249,5 +249,4 @@ class TextRankClient:
 def main():
     trcli = TextRankClient()
     words = trcli.get_words()
-    print(words)
-    print(len(words))
+    lh.logger.debug('Done.')

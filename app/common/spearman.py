@@ -20,7 +20,7 @@ class Spearman:
     def __init__(self):
         lh.logger.debug('Initializing %s.', self.__class__.__name__)
         self.trwords = persistence.load_json(self.TRWORDS_FILE)
-        self.rlwords = persistence.load_json(self.RLWORDS_FILE) 
+        self.rlwords = persistence.load_json(self.RLWORDS_FILE)
 
     def get_common(self):
 
@@ -68,6 +68,7 @@ class Spearman:
 
         return x, y
 
+
 class SpearmanClient:
 
     SCATTER_PICTURE = 'app/images/spearman.png'
@@ -77,13 +78,20 @@ class SpearmanClient:
 
     def get_plot(self, save=False):
         x, y = self.spearman.get_values()
-        rho, p_value = self.spearman.calculate(x,y)
+        rho, p_value = self.spearman.calculate(x, y)
         print(rho)
-        plt.scatter(x, y)
+        fig = plt.figure()
+        fig.suptitle('Coeficiente de Spearman', fontsize=14, fontweight='bold')
+        ax = fig.add_subplot(111)
+        fig.subplots_adjust(top=0.85)
+        ax.set_xlabel('Puntuaciones textrank')
+        ax.set_ylabel('Puntuaciones rootlog')
+        scatter = plt.scatter(x, y)
+
         if save:
-            plt.savefig(self.SCATTER_PICTURE)
+          plt.savefig(self.SCATTER_PICTURE)
         else:
-            plt.show()
+          plt.show()
 
 
 def main():
@@ -91,4 +99,3 @@ def main():
     spcli.get_plot(True)
 
 
-main()

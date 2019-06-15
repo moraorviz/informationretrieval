@@ -194,6 +194,7 @@ def main():
     for prediction in predicted:
         post = posts_addiction[index]
         user = post.user
+        print(user)
         if prediction == 2:
             if user not in userlst and user != '[deleted]':
                 index += 1
