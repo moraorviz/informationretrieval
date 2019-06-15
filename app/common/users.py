@@ -81,17 +81,17 @@ def prepare_posts_under_study():
     '''Returns a collection of posts belonging to one of the categories under study.'''
 
     # Fetch the posts through our fetcher.    
-    fetch_addiction = data.Fetch(SOURCE_FILE, 'self.addiction')
+    # fetch_addiction = data.Fetch(SOURCE_FILE, 'self.addiction')
     # fetch_alcoholism = data.Fetch(SOURCE_FILE, 'self.alcoholism')
     # fetch_stopgaming = data.Fetch(SOURCE_FILE, 'self.stopgaming')
-    # fetch_stopsmoking = data.Fetch(SOURCE_FILE, 'self.stopsmoking')
+    fetch_stopsmoking = data.Fetch(SOURCE_FILE, 'self.stopsmoking')
     # Choose a higher n for more results?
-    posts_addiction = fetch_addiction.get_posts(500000)
+    # posts_addiction = fetch_addiction.get_posts(50000000)
     # posts_alcoholism = fetch_alcoholism.get_posts(5000000)
-    # posts_stopgaming = fetch_stopgaming.get_posts(5000000)
-    # posts_stopsomking = fetch_stopsmoking.get_posts(5000000)
+    # posts_stopgaming = fetch_stopgaming.get_posts(10000)
+    posts_stopsmoking = fetch_stopsmoking.get_posts(50000)
 
-    return posts_addiction
+    return posts_stopsmoking
 
 
 def prepare_input(n=500000):
@@ -177,33 +177,39 @@ def main():
     train = traindata.createBunch()
 
     # Substitute with posts related with the topics separatedly.
-    posts_addiction = prepare_posts_under_study()
-    docs_addiction = []
+    posts = prepare_posts_under_study()
+    docs = []
 
-    for post in posts_addiction:
+    for post in posts:
         text = post.originaltext 
-        docs_addiction.append(text)
+        docs.append(text)
 
     # Call createBagOfWords() method.
-    predicted = traindata.train(train, docs_addiction)
+    predicted = traindata.train(train, docs)
     index = 0 
     dprusers = 0
     userlst = []
     # Avoid user repetition.
     # pdb.set_trace()
     for prediction in predicted:
-        post = posts_addiction[index]
+        post = posts[index]
         user = post.user
         print(user)
-        if prediction == 2:
+        if prediction == 1:
             if user not in userlst and user != '[deleted]':
-                index += 1
                 dprusers += 1
                 userlst.append(user)
+        index += 1
 
     print(predicted)
     print(dprusers)
-    print(len(posts_addiction))
+    print(len(posts))
+    contador = 0
+    for i in predicted:
+        if i == 1:
+            contador += 1
+
+    print(contador)
 
 
 main() 

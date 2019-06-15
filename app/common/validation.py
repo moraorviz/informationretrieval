@@ -171,8 +171,8 @@ def main():
 
     lh.logger.debug('Starting %s.', main.__name__)
     
-    positives, negatives = get_positives(100000)
+    positives, negatives = get_positives(1000000)
+    print(positives)
     print(len(positives))
 
     lh.logger.debug('Done.')
-
